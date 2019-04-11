@@ -4,7 +4,7 @@ import sys
 import struct
 
 if len(sys.argv) != 2:
-  sys.stderr.write("usage : {} <aapt-xmltree-file>\n".format(sys.argv[0]))
+  sys.stderr.write("usage: {} <aapt-xmltree-file>\n".format(sys.argv[0]))
   sys.exit(1)
 
 def nope(s):
@@ -272,17 +272,28 @@ def get_attribute(line, lineno):
   if oppos == -1:
     sys.stderr.write("Error: Missing '(' for line= in Attribute on line {} ...skipping\n".format(lineno))
     return {}
-  key = atseg[:oppos]
-  rem = atseg[oppos+len('('):]
-  cppos = rem.find(')')
-  if cppos == -1:
-    sys.stderr.write("Error: Missing ')' for line= in Attribute on line {} ...skipping\n".format(lineno))
-    return {}
-  key_id = rem[:cppos]
-  rem = rem[cppos+len(')'):]
-  if len(rem) < 2 or rem[0] != '=':
-    sys.stderr.write("Error: [1] Not enough characters in Attribute on line {} ...skipping\n".format(lineno))
-    return {}
+
+  if oppos == atseg.find('(Raw: "'):
+    eqpos = atseg.find('=')
+    if eqpos == -1:
+      sys.stderr.write("Error: [1] Missing = in Attribute on line {} ...skipping\n".format(lineno))
+      return {}
+    key = atseg[:eqpos]
+    key_id = None
+    rem = atseg[eqpos:]
+  else:
+    key = atseg[:oppos]
+    rem = atseg[oppos+len('('):]
+    cppos = rem.find(')')
+    if cppos == -1:
+      sys.stderr.write("Error: Missing ')' for line= in Attribute on line {} ...skipping\n".format(lineno))
+      return {}
+
+    key_id = rem[:cppos]
+    rem = rem[cppos+len(')'):]
+    if len(rem) < 2 or rem[0] != '=':
+      sys.stderr.write("Error: [1] Not enough characters or missing = in Attribute on line {} ...skipping\n".format(lineno))
+      return {}
   rem = rem[1:]
 
   # so... based on the code, any value can have a string representation that
@@ -425,6 +436,8 @@ def get_attribute(line, lineno):
     sys.stderr.write("Warn: Unrecognized format of Attribute on line {} ...skipping\n".format(lineno))
     return {}
   return {
+    "key": key,
+    "key_id": key_id,
     "value": value,
     "type": value_type,
     "type_id": value_type_id,
