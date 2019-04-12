@@ -28,11 +28,14 @@ def recurse(node, depth=0):
   elif node['node_type'] == 'element':
     sys.stdout.write('{}<{}'.format('    '*depth, node['element']))
     if node['element'] == 'manifest':
-      sys.stdout.write(' {}="{}"'.format(namespace, schema_uri))
+      sys.stdout.write(' xmlns:{}="{}"'.format(namespace, schema_uri))
     attribute_nodes = [child for child in node['children'] if child['node_type'] == 'attribute']
     element_nodes = [child for child in node['children'] if child['node_type'] == 'element']
     if len(attribute_nodes) == 1:
-      sys.stdout.write(' {}={}'.format(attribute_nodes[0]['key'], attribute_nodes[0]['value_literal']))
+      if attribute_nodes[0]["type"] == "string":
+        sys.stdout.write(' {}={}'.format(attribute_nodes[0]['key'], attribute_nodes[0]['value_literal']))
+      else:
+        sys.stdout.write(' {}="{}"'.format(attribute_nodes[0]['key'], attribute_nodes[0]['value_literal']))
     else:
       for attribute in attribute_nodes:
         recurse(attribute, depth+1)
@@ -44,6 +47,9 @@ def recurse(node, depth=0):
         recurse(element, depth+1)
       sys.stdout.write('{}</{}>\n'.format('    '*depth, node['element']))
   elif node['node_type'] == 'attribute':
-    sys.stdout.write('\n{}{}={}'.format('    '*depth, node['key'], node['value_literal']))
+    if node["type"] == "string":
+      sys.stdout.write('\n{}{}={}'.format('    '*depth, node['key'], node['value_literal']))
+    else:
+      sys.stdout.write('\n{}{}="{}"'.format('    '*depth, node['key'], node['value_literal']))
 
 recurse(root)

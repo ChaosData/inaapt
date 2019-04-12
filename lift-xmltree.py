@@ -291,9 +291,21 @@ def get_attribute(line, lineno):
 
     key_id = rem[:cppos]
     rem = rem[cppos+len(')'):]
-    if len(rem) < 2 or rem[0] != '=':
-      sys.stderr.write("Error: [1] Not enough characters or missing = in Attribute on line {} ...skipping\n".format(lineno))
+    if len(rem) < 2:
+      sys.stderr.write("Error: [1] Not enough characters (in {}) in Attribute on line {}: {} ...skipping\n".format(repr(rem), lineno, repr(line)))
       return {}
+    elif rem[0] != '=':
+      eqpos = atseg.find('=')
+      if eqpos == -1:
+        sys.stderr.write("Error: Unknown error in Attribute on line {}: {} ...skipping\n".format(rem[0], lineno, repr(line)))
+        return {}
+      if eqpos < oppos:
+        key = atseg[:eqpos]
+        key_id = None
+        rem = atseg[eqpos:]
+      else:
+        sys.stderr.write("Error: Missing '=' (got '{}') in Attribute on line {}: {} ...skipping\n".format(rem[0], lineno, repr(line)))
+        return {}
   rem = rem[1:]
 
   # so... based on the code, any value can have a string representation that
