@@ -264,14 +264,46 @@ def is_valid_string(s):
     i += 1
   return True
 
-def get_attribute(line, lineno):
+def get_attribute_inner(line, lineno):
   atseg = get_segment(line, "A: ")
   if atseg is None:
     return {}
   oppos = atseg.find('(')
   if oppos == -1:
-    sys.stderr.write("Error: Missing '(' for line= in Attribute on line {} ...skipping\n".format(lineno))
-    return {}
+    #sys.stderr.write("Error: Missing '(' for line= in Attribute on line {} ...skipping: {}\n".format(lineno, repr(line)))
+    #return {}
+    # {'key': 'android:label', 'key_id': '0x01010001', 'value': 2132088712, 'type': 'reference', 'type_id': 1, 'value_literal': '0x7f151788', 'value_raw': None}
+    eqpos = atseg.find('=')
+    if eqpos == -1:
+      sys.stderr.write("Error: Missing '(' and '=' for line= in Attribute on line {} ...skipping: {}\n".format(lineno, repr(line)))
+      return {}
+    try:
+      if atseg[eqpos+1] != '@':
+        sys.stderr.write("Error: Missing '@' for line= in Attribute on line {} ...skipping: {}\n".format(lineno, repr(line)))
+        return {}
+      key = atseg[:eqpos]
+      rem = atseg[eqpos+1:]
+      if len(rem) < len("@0xF") or len(rem) > len("@0xFFFFFFFF") or not rem.startswith("@0x"):
+        sys.stderr.write("Error: Invalid format or number of characters in Attribute on line {} ...skipping\n".format(lineno))
+        return {}
+      value_lit = rem[1:]
+      value = int(value_lit, 16)
+      value_type = "reference"
+      value_type_id = RESOURCE_TYPES[value_type]
+
+      return {
+        "key": key,
+        "key_id": None,
+        "value": value,
+        "type": value_type,
+        "type_id": value_type_id,
+        "value_literal": value_lit,
+        "value_raw": None
+      }
+    except IndexError:
+      sys.stderr.write("Error: Invalid format of reference value in Attribute on line {} ...skipping: {}\n".format(lineno, repr(line)))
+      return {}
+
 
   if oppos == atseg.find('(Raw: "'):
     eqpos = atseg.find('=')
@@ -417,37 +449,11 @@ def get_attribute(line, lineno):
       ]:
         sys.stderr.write("Error: null/reference/attribute/string in generic format in Attribute on line {} ...skipping\n".format(lineno))
         return {}
-      if value_type_id == RESOURCE_TYPES["float"]:
-        value = struct.unpack(">f", struct.pack(">I", value))
-      elif value_type_id == RESOURCE_TYPES["dimension"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["fraction"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["dynamic-reference"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["dynamic-attribute"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["int-dec"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["int-hex"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["boolean"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["argb8"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["rgb8"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["argb4"]:
-        pass
-      elif value_type_id == RESOURCE_TYPES["rgb4"]:
-        pass
-      else:
-        sys.stderr.write("Warn: Unrecognized type ID for attribute value in Attribute on line {} ...skipping\n".format(lineno))
-        return {}
+
   else:
     sys.stderr.write("Warn: Unrecognized format of Attribute on line {} ...skipping\n".format(lineno))
     return {}
-  return {
+  ret = {
     "key": key,
     "key_id": key_id,
     "value": value,
@@ -456,6 +462,54 @@ def get_attribute(line, lineno):
     "value_literal": value_lit,
     "value_raw": raw
   }
+  #sys.stderr.write("Test: ret: {}\n".format(repr(ret)))
+  return ret
+
+def get_attribute(line, lineno):
+  attr = get_attribute_inner(line, lineno)
+  if attr == {}:
+    return attr
+  value = attr["value"]
+  value_literal = attr["value_literal"]
+  value_type_id = attr["type_id"]
+
+  if value_type_id == RESOURCE_TYPES["float"]:
+    value = struct.unpack(">f", struct.pack(">I", value))
+  elif value_type_id == RESOURCE_TYPES["reference"]:
+    value_literal = "@" + value_literal
+  elif value_type_id == RESOURCE_TYPES["dimension"]:
+    pass
+  elif value_type_id == RESOURCE_TYPES["fraction"]:
+    pass
+  elif value_type_id == RESOURCE_TYPES["dynamic-reference"]:
+    pass
+  elif value_type_id == RESOURCE_TYPES["dynamic-attribute"]:
+    pass
+  elif value_type_id == RESOURCE_TYPES["int-dec"]:
+    value_literal = str(value)
+  elif value_type_id == RESOURCE_TYPES["int-hex"]:
+    pass
+  elif value_type_id == RESOURCE_TYPES["boolean"]:
+    if value_literal == '0xffffffff':
+      value_literal = 'true'
+    elif value_literal == '0x0':
+      value_literal = 'false'
+  elif value_type_id == RESOURCE_TYPES["argb8"]:
+    pass
+  elif value_type_id == RESOURCE_TYPES["rgb8"]:
+    pass
+  elif value_type_id == RESOURCE_TYPES["argb4"]:
+    pass
+  elif value_type_id == RESOURCE_TYPES["rgb4"]:
+    pass
+  else:
+    if value_type_id not in RESOURCE_TYPES_BY_ID:
+      sys.stderr.write("Warn: Unrecognized type ID for attribute value in Attribute on line {} ...skipping: {}\n".format(lineno, hex(value_type_id)))
+      return {}
+  attr["value"] = value
+  attr["value_literal"] = value_literal
+  return attr
+
 
 nodes = { 'children': [] }
 idt_stack = []

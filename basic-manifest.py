@@ -20,7 +20,6 @@ def recurse(node, depth=0):
   global namespace
   global schema_uri
   if node['node_type'] == 'namespace':
-    sys.stdout.write('<?xml version="1.0" encoding="utf-8"?>\n')
     namespace = node['namespace']
     schema_uri = node['schema_uri']
     for child in node['children']:
@@ -42,7 +41,10 @@ def recurse(node, depth=0):
     if len(element_nodes) == 0:
       sys.stdout.write(' />\n')
     else:
-      sys.stdout.write(' >\n')
+      if len(attribute_nodes) == 0:
+        sys.stdout.write('>\n')
+      else:
+        sys.stdout.write(' >\n')
       for element in element_nodes:
         recurse(element, depth+1)
       sys.stdout.write('{}</{}>\n'.format('    '*depth, node['element']))
@@ -52,4 +54,5 @@ def recurse(node, depth=0):
     else:
       sys.stdout.write('\n{}{}="{}"'.format('    '*depth, node['key'], node['value_literal']))
 
+sys.stdout.write('<?xml version="1.0" encoding="utf-8"?>\n')
 recurse(root)
